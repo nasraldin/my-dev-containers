@@ -12,22 +12,23 @@ version: "3.4"
 # For example, a service, a server, a client, a database...
 # We use the keyword 'services' to start to create services.
 services:
-  # The name of our service is "database"
+  # The name of our service is "portainer"
   # but you can use the name of your choice.
   # Note: This may change the commands you are going to use a little bit.  
   portainer:
-    image: portainer/portainer-ce # Official Postgres image from DockerHub (we use the last version)
+    image: portainer/portainer-ce # Official portainer image from DockerHub (we use the last version)
     container_name: portainer
     restart: always
-    # By default, a Postgres database is running on the 5432 port.
+    # By default, a portainer is running on the 9000 port.
     # If we want to access the database from our computer (outside the container),
     # we must share the port with our computer's port.
     # The syntax is [port we want on our machine]:[port we want to retrieve in the container]
     # Note: You are free to change your computer's port,
     # but take into consideration that it will change the way
-    # you are connecting to your database.    
+    # you are connecting to your portainer.
     ports:
       - "9000:9000"
+    # default commands  
     command: -H unix:///var/run/docker.sock
     # The `volumes` tag allows us to share a folder with our container.
     # Its syntax is as follows: [folder path on our machine]:[folder path to retrieve in the container]    
