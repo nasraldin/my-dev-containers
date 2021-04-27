@@ -2,13 +2,19 @@
 
 Is a pre-configured container that I used every day. so, I created this docker-compose with pre-configured to use quickly.
 
+<img src="https://raw.githubusercontent.com/nasraldin/my-dev-containers/main/img/Screenshot%202021-04-28%20011015.png" />
+<img src="https://raw.githubusercontent.com/nasraldin/my-dev-containers/main/img/Screenshot%202021-04-28%20011103.png" />
+
 # Container management
+
 - portainer http://localhost:9000
 
 # Centralized log
+
 - seq http://localhost:5341
 
 # Databases
+
 - sqlserver
 - mysql
 - mariadb
@@ -18,29 +24,33 @@ Is a pre-configured container that I used every day. so, I created this docker-c
 - redis
 
 # GUI
+
 - phpmyadmin http://localhost:8002
 - pgadmin4 http://localhost:8004
 - adminer http://localhost:8005
-- fauxton for couchdb http://localhost:5984/_utils
+- fauxton for couchdb http://localhost:5984/\_utils
 - couchbase http://localhost:8091
 - redis-commander http://localhost:8003
 
 # Workflow
+
 - Camunda BPM http://localhost:8080/camunda
 - camunda workbench http://localhost:8088
 
 # Message queue
+
 - rabbitmq http://localhost:15672
 
 ## How to use
+
 Start in the root directory of this project, then
 
 ```bash
 $ docker-compose up --build -d
 ```
 
-* Username: `nasr` for pgadmin4 use nasr2ldin@gmail.com
-* Password: `nasr`
+- Username: `nasr` for pgadmin4 use nasr2ldin@gmail.com
+- Password: `nasr`
 
 ### Cleanup
 
