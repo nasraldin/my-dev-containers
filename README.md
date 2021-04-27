@@ -28,7 +28,7 @@ Is a pre-configured container that I used every day. so, I created this docker-c
 - phpmyadmin http://localhost:8002
 - pgadmin4 http://localhost:8004
 - adminer http://localhost:8005
-- fauxton for couchdb http://localhost:5984/\_utils
+- fauxton for couchdb http://localhost:5984/_utils
 - couchbase http://localhost:8091
 - redis-commander http://localhost:8003
 
