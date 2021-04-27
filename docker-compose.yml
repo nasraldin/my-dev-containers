@@ -1,0 +1,236 @@
+#  <author>Nasr Aldin</author>
+#  <email>nasr2ldin@gmail.com</email>
+#  <github>https://github.com/nasraldin/my-dev-containers</github>
+#  <date>04/28/2021 01:03 AM</date>
+
+# A Docker Compose must always start with the version tag.
+# We use '3' because it's the last version.
+version: "3.4"
+
+# You should know that Docker Compose works with services.
+# 1 service = 1 container.
+# For example, a service, a server, a client, a database...
+# We use the keyword 'services' to start to create services.
+services:
+  # The name of our service is "database"
+  # but you can use the name of your choice.
+  # Note: This may change the commands you are going to use a little bit.  
+  portainer:
+    image: portainer/portainer-ce # Official Postgres image from DockerHub (we use the last version)
+    container_name: portainer
+    restart: always
+    # By default, a Postgres database is running on the 5432 port.
+    # If we want to access the database from our computer (outside the container),
+    # we must share the port with our computer's port.
+    # The syntax is [port we want on our machine]:[port we want to retrieve in the container]
+    # Note: You are free to change your computer's port,
+    # but take into consideration that it will change the way
+    # you are connecting to your database.    
+    ports:
+      - "9000:9000"
+    command: -H unix:///var/run/docker.sock
+    # The `volumes` tag allows us to share a folder with our container.
+    # Its syntax is as follows: [folder path on our machine]:[folder path to retrieve in the container]    
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+  seq:
+      image: datalust/seq:latest
+      container_name: seq
+      restart: always
+      ports:
+        - "5341:80"
+      environment:
+        - ACCEPT_EULA=Y
+      volumes:
+        - seq_data:/data      
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:latest
+    container_name: sqlserver
+    restart: always
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=$SQL_SERVER_PASSWORD
+      # - MSSQL_TCP_PORT=$MSSQL_TCP_PORT
+      - MSSQL_PID=$MSSQL_PID
+    ports:
+      - "1433:1433"
+    volumes:
+      - mssql:/home/mssql
+  # mysql:
+  #   image: mysql:latest
+  #   environment:
+  #     - MYSQL_ROOT_PASSWORD=root
+  #     - MYSQL_USER=nasr
+  #     - MYSQL_PASSWORD=nasr
+  #     - MYSQL_DATABASE=test
+  #   volumes:
+  #     - mysql:/var/lib/mysql
+  mariadb:
+    image: mariadb:latest
+    container_name: mariadb
+    restart: always
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+    volumes:
+      - mariadb:/var/lib/mysql
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: phpmyadmin
+    environment:
+      # - PMA_HOST=mariadb
+      # - PMA_PORT=3306
+      # - MYSQL_ROOT_PASSWORD=root
+      - PMA_ARBITRARY=1
+    restart: always
+    ports:
+      - 8002:80
+    volumes:
+      - /sessions
+  postgres:
+    image: postgres:latest
+    container_name: postgres
+    environment:
+      - POSTGRES_USER=$POSTGRES_USER
+      - POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+      - POSTGRES_DB=$POSTGRES_DB
+    restart: always
+    ports:
+      - 5432:5432
+    volumes:      
+    # In this example, we share the folder `db-data` in our root repository, with the default PostgreSQL data path.
+    # It means that every time the repository is modifying the data inside
+    # of `/var/lib/postgresql/data/`, automatically the change will appear in `db-data`.
+    # You don't need to create the `db-data` folder. Docker Compose will do it for you.
+      - pgdata/:/var/lib/postgresql/data/
+  pgadmin4:
+    image: dpage/pgadmin4
+    container_name: pgadmin4
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
+    depends_on:
+      - postgres
+    ports:
+      - "8004:80"
+  # adminer:
+  #   image: adminer
+  #   restart: always
+  #   ports:
+  #     - 8005:8080
+  #   environment:
+  #     - ADMINER_DESIGN=arcs-material
+  #     - ADMINER_PLUGINS=tables-filter tinymce
+  couchdb:
+    image: couchdb:latest
+    container_name: couchdb
+    restart: always
+    ports:
+      - "5984:5984"
+    environment:
+      COUCHDB_USER: ${COUCHDB_USER}
+      COUCHDB_PASSWORD: ${COUCHDB_PASSWORD}
+    volumes:
+      - couchdb:/opt/couchdb/data
+  couchbase:
+    image: couchbase:latest
+    container_name: couchbase
+    restart: always
+    deploy:
+      replicas: 1
+    ports:
+      - 8091:8091
+      # - 8092:8092
+      # - 8093:8093
+      - 8094:8094
+      - 11210:11210
+    volumes:
+      - couchbase:/opt/couchbase/data
+  redis:
+    image: redis:latest
+    container_name: redis
+    restart: always
+    ports:
+      - "6379:6379"
+    environment:
+      ALLOW_EMPTY_PASSWORD: ${ALLOW_EMPTY_PASSWORD}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    volumes:
+      - "redis_data:/var/lib/redis/data"
+  redis-commander:
+    container_name: redis-commander
+    hostname: redis-commander
+    image: rediscommander/redis-commander:latest
+    restart: always
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    ports:
+      - "8003:8081"
+  camunda-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.camunda
+    container_name: camunda-server
+    restart: always
+    ports:
+      - "8009:8009"
+      - "8080:8080"
+    environment:
+      - DB_DRIVER=org.mariadb.jdbc.Driver
+      - DB_URL=jdbc:mariadb:sequential://mariadb:3306/camunda
+      - DB_USERNAME=root
+      - DB_PASSWORD=root
+      - WAIT_FOR=mariadb:3306
+      - WAIT_FOR_TIMEOUT=10
+    links:
+      - mariadb
+  # camunda-workbench:
+  #   image: camunda/camunda-bpm-workbench:latest
+  #   container_name: camunda-workbench
+  #   restart: always
+  #   ports:
+  #     - "8088:8080"
+  #     - "8090:8090"
+  #     - "9090:9090"
+  rabbitmq:
+    build:
+      context: .
+      dockerfile: Dockerfile.rabbitmq
+    container_name: rabbitmq
+    restart: always
+    environment:
+      # - RABBITMQ_DEFAULT_USER=$RABBITMQ_DEFAULT_USER
+      # - RABBITMQ_DEFAULT_PASS=$RABBITMQ_DEFAULT_PASS
+      - RABBITMQ_ERLANG_COOKIE=$RABBITMQ_ERLANG_COOKIE
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/data
+      # - ./.docker/rabbitmq/etc/:/etc/rabbitmq/
+      # - ./.docker/rabbitmq/data/:/var/lib/rabbitmq/
+      # - ./.docker/rabbitmq/logs/:/var/log/rabbitmq/
+
+volumes:
+  portainer_data:
+  seq_data:
+  mssql:
+    driver: local
+  mariadb:
+    driver: local
+  pgdata:
+    driver: local
+  couchdb:
+    driver: local
+  couchbase:
+    driver: local
+  redis_data:
+    driver: local
+  rabbitmq_data:
+      driver: local
