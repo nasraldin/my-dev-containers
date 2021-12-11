@@ -1,0 +1,12 @@
+#  <author>Nasr Aldin</author>
+#  <email>nasr2ldin@gmail.com</email>
+#  <github>https://github.com/nasraldin</github>
+#  <date>05/10/2021 08:31 AM</date>
+
+FROM nginx:latest
+
+## Remove default nginx website
+# RUN rm -rf /usr/share/nginx/html/*
+
+COPY ./nginx/nginx.conf /etc/nginx/nginx.conf
+# CMD ["nginx", "-g", "daemon off;"]

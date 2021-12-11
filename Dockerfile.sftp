@@ -3,8 +3,7 @@
 #  <github>https://github.com/nasraldin</github>
 #  <date>05/10/2021 08:31 AM</date>
 
-FROM rabbitmq:management
+FROM atmoz/sftp
 
-COPY ./rabbitmq /etc/rabbitmq
-
-CMD ["rabbitmq-server"]
+COPY ./sftp/users.conf /etc/sftp/users.conf:ro
+# COPY ./.docker/ssh_keys /etc/ssh

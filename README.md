@@ -46,7 +46,9 @@ Is a pre-configured container that I used every day. so, I created this docker-c
 Start in the root directory of this project, then
 
 ```bash
-$ docker-compose up --build -d
+$ docker-compose up --build -d (-d run the containers in background)
+$ docker-compose stop
+$ docker-compose start
 ```
 
 - Username: `nasr` for pgadmin4 use nasr2ldin@gmail.com
@@ -60,6 +62,11 @@ In order to entirely shutdown the stack and remove all persisted data, use the f
 
 ```console
 $ docker-compose down -v
+```
+
+### logs
+```console
+$ docker-compose logs -f (-f displays the current logs)
 ```
 
 ## Contributing

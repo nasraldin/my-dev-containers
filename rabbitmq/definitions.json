@@ -1,6 +1,4 @@
 {
-  "rabbit_version": "3.8.5",
-  "rabbitmq_version": "3.8.5",
   "users": [
     {
       "name": "nasr",

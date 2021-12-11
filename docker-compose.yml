@@ -5,46 +5,58 @@
 
 # A Docker Compose must always start with the version tag.
 # We use '3' because it's the last version.
-version: "3.4"
+version: "3.8"
 
 # You should know that Docker Compose works with services.
 # 1 service = 1 container.
 # For example, a service, a server, a client, a database...
 # We use the keyword 'services' to start to create services.
 services:
-  # The name of our service is "portainer"
-  # but you can use the name of your choice.
-  # Note: This may change the commands you are going to use a little bit.  
-  portainer:
-    image: portainer/portainer-ce # Official portainer image from DockerHub (we use the last version)
-    container_name: portainer
+  # nginx:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.nginx
+  #   container_name: nginx
+  #   # volumes:
+  #   #   - .cert/https/dev.local.crt:/etc/ssl/certs/dev.local.crt:ro
+  #   #   - .cert/https/dev.local.key:/etc/ssl/private/dev.local.key:ro
+  #   restart: unless-stopped
+  #   ports:
+  #     - "8088:80"
+  #     - "5002:443"
+  #   networks:
+  #     - gateway
+  keycloak:
+    image: jboss/keycloak
+    container_name: keycloak
     restart: always
-    # By default, a portainer is running on the 9000 port.
-    # If we want to access the database from our computer (outside the container),
-    # we must share the port with our computer's port.
-    # The syntax is [port we want on our machine]:[port we want to retrieve in the container]
-    # Note: You are free to change your computer's port,
-    # but take into consideration that it will change the way
-    # you are connecting to your portainer.
+    environment:
+      DB_VENDOR: mariadb
+      DB_ADDR: mariadb
+      DB_DATABASE: keycloak
+      DB_USER: ${MARIADB_USERNAME}
+      DB_PASSWORD: ${MARIADB_PASSWORD}
+      KEYCLOAK_USER: ${USERNAME}
+      KEYCLOAK_PASSWORD: ${PASSWORD}
+      JGROUPS_DISCOVERY_PROTOCOL: JDBC_PING
     ports:
-      - "9000:9000"
-    # default commands  
-    command: -H unix:///var/run/docker.sock
-    # The `volumes` tag allows us to share a folder with our container.
-    # Its syntax is as follows: [folder path on our machine]:[folder path to retrieve in the container]    
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - portainer_data:/data
+      - "8080:8080"
+    depends_on:
+      - mariadb
+    networks:
+      - gateway
   seq:
-      image: datalust/seq:latest
-      container_name: seq
-      restart: always
-      ports:
-        - "5341:80"
-      environment:
-        - ACCEPT_EULA=Y
-      volumes:
-        - seq_data:/data      
+    image: datalust/seq:latest
+    container_name: seq
+    restart: always
+    ports:
+      - "5341:80"
+    environment:
+      - ACCEPT_EULA=Y
+    volumes:
+      - seq_data:/data
+    networks:
+      - gateway
   sqlserver:
     image: mcr.microsoft.com/mssql/server:latest
     container_name: sqlserver
@@ -52,12 +64,14 @@ services:
     environment:
       - ACCEPT_EULA=Y
       - SA_PASSWORD=$SQL_SERVER_PASSWORD
-      # - MSSQL_TCP_PORT=$MSSQL_TCP_PORT
+      - MSSQL_TCP_PORT=$MSSQL_TCP_PORT
       - MSSQL_PID=$MSSQL_PID
     ports:
       - "1433:1433"
     volumes:
       - mssql:/home/mssql
+    networks:
+      - gateway
   # mysql:
   #   image: mysql:latest
   #   environment:
@@ -77,12 +91,19 @@ services:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
+    command: mysqld --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     volumes:
+      - ./mysql/init:/docker-entrypoint-initdb.d
       - mariadb:/var/lib/mysql
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "--silent" ]
+    networks:
+      - gateway
   phpmyadmin:
     image: phpmyadmin/phpmyadmin
     container_name: phpmyadmin
+    depends_on:
+      - mariadb
     environment:
       # - PMA_HOST=mariadb
       # - PMA_PORT=3306
@@ -92,7 +113,29 @@ services:
     ports:
       - 8002:80
     volumes:
-      - /sessions
+      - phpmyadmin:/sessions
+    networks:
+      - gateway
+  # cassandra:
+  #   image: cassandra:latest
+  #   container_name: cassandra
+  #   hostname: cassandra
+  #   healthcheck:
+  #     test: ["CMD", "cqlsh", "-e", "describe keyspaces"]
+  #     interval: 5s
+  #     timeout: 5s
+  #     retries: 60
+  #   restart: always
+  #   ports:
+  #     - "7199:7199" # JMX
+  #     - "7000:7000" # cluster communication
+  #     - "7001:7001" # cluster communication (SSL)
+  #     - "9042:9042" # native protocol clients
+  #     - "9160:9160" # thrift clients
+  #   volumes:
+  #     - cassandra_data:/var/lib/cassandra
+  #   networks:
+  #     - gateway
   postgres:
     image: postgres:latest
     container_name: postgres
@@ -103,12 +146,14 @@ services:
     restart: always
     ports:
       - 5432:5432
-    volumes:      
-    # In this example, we share the folder `db-data` in our root repository, with the default PostgreSQL data path.
-    # It means that every time the repository is modifying the data inside
-    # of `/var/lib/postgresql/data/`, automatically the change will appear in `db-data`.
-    # You don't need to create the `db-data` folder. Docker Compose will do it for you.
-      - pgdata/:/var/lib/postgresql/data/
+    volumes:
+      # In this example, we share the folder `db-data` in our root repository, with the default PostgreSQL data path.
+      # It means that every time the repository is modifying the data inside
+      # of `/var/lib/postgresql/data/`, automatically the change will appear in `db-data`.
+      # You don't need to create the `db-data` folder. Docker Compose will do it for you.
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - gateway
   pgadmin4:
     image: dpage/pgadmin4
     container_name: pgadmin4
@@ -119,7 +164,11 @@ services:
     depends_on:
       - postgres
     ports:
-      - "8004:80"
+      - "8000:80"
+    volumes:
+      - pgadmin:/var/lib/pgadmin
+    networks:
+      - gateway
   # adminer:
   #   image: adminer
   #   restart: always
@@ -139,20 +188,52 @@ services:
       COUCHDB_PASSWORD: ${COUCHDB_PASSWORD}
     volumes:
       - couchdb:/opt/couchdb/data
-  couchbase:
-    image: couchbase:latest
-    container_name: couchbase
+    networks:
+      - gateway
+  # couchbase:
+  #   image: couchbase:latest
+  #   container_name: couchbase
+  #   restart: always
+  #   deploy:
+  #     replicas: 1
+  #   ports:
+  #     - 8091:8091
+  #     # - 8092:8092
+  #     # - 8093:8093
+  #     - 8094:8094
+  #     - 11210:11210
+  #   volumes:
+  #     - couchbase:/opt/couchbase/data
+  #   networks:
+  #     - gateway
+  mongo:
+    image: mongo:latest
+    container_name: mongo
     restart: always
-    deploy:
-      replicas: 1
     ports:
-      - 8091:8091
-      # - 8092:8092
-      # - 8093:8093
-      - 8094:8094
-      - 11210:11210
+      - 27017:27017
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGODB_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_PASSWORD}
     volumes:
-      - couchbase:/opt/couchbase/data
+      - mongodb_data:/data/db
+      - mongodb_configdb:/data/configdb
+    networks:
+      - gateway
+  mongo-express:
+    image: mongo-express:latest
+    container_name: mongo-express
+    restart: always
+    ports:
+      - 8081:8081
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: ${MONGODB_USERNAME}
+      ME_CONFIG_MONGODB_ADMINPASSWORD: ${MONGODB_PASSWORD}
+      ME_CONFIG_MONGODB_URL: mongodb://$MONGODB_USERNAME:$MONGODB_PASSWORD@mongo:27017
+    volumes:
+      - mongo_express_data:/data/db
+    networks:
+      - gateway
   redis:
     image: redis:latest
     container_name: redis
@@ -163,40 +244,46 @@ services:
       ALLOW_EMPTY_PASSWORD: ${ALLOW_EMPTY_PASSWORD}
       REDIS_PASSWORD: ${REDIS_PASSWORD}
     volumes:
-      - "redis_data:/var/lib/redis/data"
-  redis-commander:
-    container_name: redis-commander
-    hostname: redis-commander
-    image: rediscommander/redis-commander:latest
-    restart: always
-    environment:
-      - REDIS_HOSTS=local:redis:6379
-    ports:
-      - "8003:8081"
-  camunda-server:
+      - "redis_data:/data"
+    networks:
+      - gateway
+  # redis-commander:
+  #   container_name: redis-commander
+  #   hostname: redis-commander
+  #   image: rediscommander/redis-commander:latest
+  #   restart: always
+  #   environment:
+  #     - REDIS_HOSTS=local:redis:6379
+  #   ports:
+  #     - "8003:8081"
+  #   networks:
+  #     - gateway
+  camunda:
     build:
       context: .
       dockerfile: Dockerfile.camunda
-    container_name: camunda-server
+    container_name: camunda
     restart: always
     ports:
       - "8009:8009"
-      - "8080:8080"
+      - "8008:8080"
     environment:
       - DB_DRIVER=org.mariadb.jdbc.Driver
       - DB_URL=jdbc:mariadb:sequential://mariadb:3306/camunda
-      - DB_USERNAME=root
-      - DB_PASSWORD=root
+      - DB_USERNAME=$MARIADB_USERNAME
+      - DB_PASSWORD=$MARIADB_PASSWORD
       - WAIT_FOR=mariadb:3306
       - WAIT_FOR_TIMEOUT=10
     links:
       - mariadb
+    networks:
+      - gateway
   # camunda-workbench:
   #   image: camunda/camunda-bpm-workbench:latest
   #   container_name: camunda-workbench
   #   restart: always
   #   ports:
-  #     - "8088:8080"
+  #     - "8089:8080"
   #     - "8090:8090"
   #     - "9090:9090"
   rabbitmq:
@@ -206,32 +293,108 @@ services:
     container_name: rabbitmq
     restart: always
     environment:
-      # - RABBITMQ_DEFAULT_USER=$RABBITMQ_DEFAULT_USER
-      # - RABBITMQ_DEFAULT_PASS=$RABBITMQ_DEFAULT_PASS
       - RABBITMQ_ERLANG_COOKIE=$RABBITMQ_ERLANG_COOKIE
     ports:
       - "5672:5672"
       - "15672:15672"
     volumes:
-      - rabbitmq_data:/data
-      # - ./.docker/rabbitmq/etc/:/etc/rabbitmq/
-      # - ./.docker/rabbitmq/data/:/var/lib/rabbitmq/
-      # - ./.docker/rabbitmq/logs/:/var/log/rabbitmq/
+      - rabbitmq_data:/var/lib/rabbitmq/
+      - rabbitmq_logs:/var/log/rabbitmq/
+      - rabbitmq_etc:/etc/rabbitmq/
+    networks:
+      - gateway
+  sftp:
+    build:
+      context: .
+      dockerfile: Dockerfile.sftp
+    container_name: sftp
+    restart: always
+    volumes:
+      - sftp_data:/home/uploads
+    ports:
+      - "2222:22"
+    command: nasr:nasr:1001
+    networks:
+      - gateway
+  jenkins:
+    image: jenkins/jenkins:lts
+    container_name: jenkins
+    restart: always
+    ports:
+      - "8888:8080"
+      - "50000:50000"
+    volumes:
+      - jenkins_home:/var/jenkins_home
+    networks:
+      - gateway
+  sonarqube:
+    image: sonarqube:latest
+    container_name: sonarqube
+    restart: always
+    hostname: sonarqube
+    depends_on:
+      - postgres
+    ports:
+      - "9000:9000"
+    environment:
+      - SONAR_ES_BOOTSTRAP_CHECKS_DISABLE=true
+      - sonar.jdbc.url=jdbc:postgresql://postgres:5432/sonarqube
+      - sonar.jdbc.username=$POSTGRES_USER
+      - sonar.jdbc.password=$POSTGRES_PASSWORD
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_logs:/opt/sonarqube/logs
+      - sonarqube_extensions:/opt/sonarqube/extensions
+    networks:
+      - gateway
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+
+networks:
+  gateway: {}
 
 volumes:
-  portainer_data:
   seq_data:
+    driver: local
   mssql:
     driver: local
   mariadb:
     driver: local
+  phpmyadmin:
+    driver: local
+  # cassandra_data:
+  #   driver: local
   pgdata:
+    driver: local
+  pgadmin:
     driver: local
   couchdb:
     driver: local
-  couchbase:
+  # couchbase:
+  #   driver: local
+  mongodb_data:
+    driver: local
+  mongodb_configdb:
+    driver: local
+  mongo_express_data:
     driver: local
   redis_data:
     driver: local
   rabbitmq_data:
-      driver: local
+    driver: local
+  rabbitmq_logs:
+    driver: local
+  rabbitmq_etc:
+    driver: local
+  sftp_data:
+    driver: local
+  jenkins_home:
+    driver: local
+  sonarqube_data:
+    driver: local
+  sonarqube_logs:
+    driver: local
+  sonarqube_extensions:
+    driver: local
