@@ -1,0 +1,285 @@
+#  <author>Nasr Aldin</author>
+#  <email>nasr2ldin@gmail.com</email>
+#  <github>https://github.com/nasraldin/my-dev-containers</github>
+#  <date>04/28/2021 01:03 AM</date>
+
+version: "3.8"
+
+services:
+  # nginx:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.nginx
+  #   container_name: nginx
+  #   # volumes:
+  #   #   - .cert/https/dev.local.crt:/etc/ssl/certs/dev.local.crt:ro
+  #   #   - .cert/https/dev.local.key:/etc/ssl/private/dev.local.key:ro
+  #   restart: unless-stopped
+  #   ports:
+  #     - "8088:80"
+  #     - "5002:443"
+  #   networks:
+  #     - gateway
+  loki:
+    image: grafana/loki:latest
+    container_name: loki
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - loki_data:/var/data
+    networks:
+      - gateway
+  promtail:
+    image: grafana/promtail:latest
+    container_name: promtail
+    command: -config.file=/etc/promtail/config.yml
+    volumes:
+      - promtail_log:/var/log
+    networks:
+      - gateway
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: always
+    ports:
+      - 3000:3000
+    networks:
+      - gateway
+  seq:
+    image: datalust/seq:latest
+    container_name: seq
+    restart: always
+    ports:
+      - "5341:80"
+    environment:
+      - ACCEPT_EULA=Y
+    volumes:
+      - seq_data:/data
+    networks:
+      - gateway
+  sqlserver:
+    image: mcr.microsoft.com/azure-sql-edge:latest
+    container_name: sqlserver
+    restart: always
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=$SQL_SERVER_PASSWORD
+      - MSSQL_TCP_PORT=$MSSQL_TCP_PORT
+      - MSSQL_PID=$MSSQL_PID
+    ports:
+      - "1433:1433"
+    volumes:
+      - mssql_data:/var/opt/mssql-extensibility/data
+      - mssql_extensibility:/var/opt/mssql-extensibility
+      - mssql_log:/var/opt/mssql-extensibility/log
+      - mssql:/home/mssql
+    networks:
+      - gateway
+  mariadb:
+    image: mariadb:latest
+    container_name: mariadb
+    restart: always
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    command: mysqld --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - ./mysql/init:/docker-entrypoint-initdb.d
+      - mariadb:/var/lib/mysql
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "--silent" ]
+    networks:
+      - gateway
+  phpmyadmin:
+    platform: linux/arm64/v8
+    image: phpmyadmin
+    container_name: phpmyadmin
+    depends_on:
+      - mariadb
+    environment:
+      # - PMA_HOST=mariadb
+      # - PMA_PORT=3306
+      # - MYSQL_ROOT_PASSWORD=root
+      - PMA_ARBITRARY=1
+    restart: always
+    ports:
+      - 8002:80
+    volumes:
+      - phpmyadmin:/sessions
+    networks:
+      - gateway
+  # postgres:
+  #   image: postgres:latest
+  #   container_name: postgres
+  #   environment:
+  #     - POSTGRES_USER=$POSTGRES_USER
+  #     - POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+  #     - POSTGRES_DB=$POSTGRES_DB
+  #   restart: always
+  #   ports:
+  #     - 5432:5432
+  #   volumes:
+  #     - pgdata:/var/lib/postgresql/data
+  #   networks:
+  #     - gateway
+  # pgadmin4:
+  #   image: dpage/pgadmin4
+  #   container_name: pgadmin4
+  #   restart: always
+  #   environment:
+  #     PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+  #     PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
+  #   depends_on:
+  #     - postgres
+  #   ports:
+  #     - "8001:80"
+  #   volumes:
+  #     - pgadmin:/var/lib/pgadmin
+  #   networks:
+  #     - gateway
+  couchdb:
+    image: couchdb:latest
+    container_name: couchdb
+    restart: always
+    ports:
+      - "5984:5984"
+    environment:
+      COUCHDB_USER: ${COUCHDB_USER}
+      COUCHDB_PASSWORD: ${COUCHDB_PASSWORD}
+    volumes:
+      - couchdb:/opt/couchdb/data
+    networks:
+      - gateway
+  mongo:
+    image: mongo:latest
+    container_name: mongo
+    restart: always
+    ports:
+      - 27017:27017
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGODB_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_PASSWORD}
+    volumes:
+      - mongodb_data:/data/db
+      - mongodb_configdb:/data/configdb
+    networks:
+      - gateway
+  # mongo-express:
+  #   image: mongo-express:latest
+  #   container_name: mongo-express
+  #   restart: always
+  #   ports:
+  #     - 8081:8081
+  #   environment:
+  #     ME_CONFIG_MONGODB_ADMINUSERNAME: ${MONGODB_USERNAME}
+  #     ME_CONFIG_MONGODB_ADMINPASSWORD: ${MONGODB_PASSWORD}
+  #     ME_CONFIG_MONGODB_URL: mongodb://$MONGODB_USERNAME:$MONGODB_PASSWORD@mongo:27017
+  #   volumes:
+  #     - mongo_express_data:/data/db
+  #   networks:
+  #     - gateway
+  redis:
+    image: redis:latest
+    container_name: redis
+    restart: always
+    ports:
+      - "6379:6379"
+    environment:
+      ALLOW_EMPTY_PASSWORD: ${ALLOW_EMPTY_PASSWORD}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    volumes:
+      - "redis_data:/data"
+    networks:
+      - gateway
+  rabbitmq:
+    image: rabbitmq:management
+    container_name: rabbitmq
+    restart: always
+    environment:
+      - RABBITMQ_ERLANG_COOKIE=$RABBITMQ_ERLANG_COOKIE
+      - RABBITMQ_DEFAULT_USER=$USERNAME
+      - RABBITMQ_DEFAULT_PASS=$PASSWORD
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq/
+      - rabbitmq_logs:/var/log/rabbitmq/
+      - rabbitmq_etc:/etc/rabbitmq/
+    networks:
+      - gateway
+  # rabbitmq:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.rabbitmq
+  #   container_name: rabbitmq
+  #   restart: always
+  #   environment:
+  #     - RABBITMQ_ERLANG_COOKIE=$RABBITMQ_ERLANG_COOKIE
+  #   ports:
+  #     - "5672:5672"
+  #     - "15672:15672"
+  #   volumes:
+  #     - rabbitmq_data:/var/lib/rabbitmq/
+  #     - rabbitmq_logs:/var/log/rabbitmq/
+  #     - rabbitmq_etc:/etc/rabbitmq/
+  #   networks:
+  #     - gateway
+  consul:
+    image: consul
+    container_name: consul
+    ports:
+      - 8500:8500
+    networks:
+      - gateway
+    volumes:
+      - consul:/consul/data
+
+networks:
+  gateway: {}
+
+volumes:
+  loki_data:
+    driver: local
+  promtail_log:
+    driver: local
+  seq_data:
+    driver: local
+  mssql_data:
+    driver: local
+  mssql_extensibility:
+    driver: local
+  mssql_log:
+    driver: local
+  mssql:
+    driver: local
+  mariadb:
+    driver: local
+  phpmyadmin:
+    driver: local
+  # pgdata:
+  #   driver: local
+  # pgadmin:
+  #   driver: local
+  couchdb:
+    driver: local
+  mongodb_data:
+    driver: local
+  mongodb_configdb:
+    driver: local
+  # mongo_express_data:
+  #   driver: local
+  redis_data:
+    driver: local
+  rabbitmq_data:
+    driver: local
+  rabbitmq_logs:
+    driver: local
+  rabbitmq_etc:
+    driver: local
+  consul:
+    driver: local
